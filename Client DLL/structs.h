@@ -111,9 +111,9 @@ public:
 		ArrayMax = 0;
 	}
 
-	INL ElementType operator[](int Index) const { return Data[Index]; }
+	INL ElementType& operator[](int Index) const { return Data[Index]; }
 
-	INL ElementType At(int Index) const { return Data[Index]; }
+	INL ElementType& At(int Index) const { return Data[Index]; }
 
 	INL int32_t Slack() const
 	{
@@ -143,6 +143,8 @@ public:
 	{
 
 	}
+
+	// TODO: Add TArray freeing.
 };
 
 class FString // https://github.com/EpicGames/UnrealEngine/blob/4.21/Engine/Source/Runtime/Core/Public/Containers/UnrealString.h#L59
@@ -236,13 +238,22 @@ struct UObject // https://github.com/EpicGames/UnrealEngine/blob/c3caf7b6bf12ae4
 	template <typename MemberType>
 	INL MemberType* Member(std::string MemberName);
 
+	bool IsA(UObject* cmp) const;
+
+	INL struct UFunction* Function(const std::string& FuncName);
+
 	INL auto ProcessEvent(UObject* Function, void* Params)
 	{
 		return ProcessEventO(this, Function, Params);
 	}
 
-	bool IsA(UObject* cmp) const;
+	INL auto ProcessEvent(const std::string& FuncName, void* Params)
+	{
+		return ProcessEvent((UObject*)this->Function(FuncName), Params);
+	}
 };
+
+struct UFunction : UObject {}; // TODO: Add acutal stuff to this
 
 struct FUObjectItem // https://github.com/EpicGames/UnrealEngine/blob/4.27/Engine/Source/Runtime/CoreUObject/Public/UObject/UObjectArray.h#L26
 {
@@ -506,24 +517,79 @@ struct UStructOldest : public UField
 
 struct UClassOldest : UStructOldest {};
 
-template <typename ClassType, typename PropertyType>
+template <typename ClassType, typename PropertyType, typename ReturnValue = PropertyType>
 auto GetMembers(UObject* Object)
 {
-	std::vector<PropertyType*> Members;
+	std::vector<ReturnValue*> Members;
 
-	for (auto CurrentClass = (ClassType*)Object->ClassPrivate; CurrentClass; CurrentClass = (ClassType*)CurrentClass->SuperStruct)
+	if (Object)
 	{
-		auto Property = CurrentClass->ChildProperties;
-
-		while (Property)
+		for (auto CurrentClass = (ClassType*)Object->ClassPrivate; CurrentClass; CurrentClass = (ClassType*)CurrentClass->SuperStruct)
 		{
-			Members.push_back((PropertyType*)Property);
+			auto Property = CurrentClass->ChildProperties;
 
-			Property = Property->Next;
+			if (Property)
+			{
+				auto Next = Property->Next;
+
+				if (Next)
+				{
+					Members.push_back((ReturnValue*)Property);
+
+					while (Property)
+					{
+						Members.push_back((ReturnValue*)Property);
+
+						Property = Property->Next;
+					}
+				}
+			}
+
 		}
 	}
 
 	return Members;
+}
+
+auto GetMembersAsObjects(UObject* Object)
+{
+	std::vector<UObject*> Members;
+
+	if (Engine_Version <= 420)
+		Members = GetMembers<UClassOldest, UPropertyOld, UObject>(Object);
+
+	else if (Engine_Version == 421) // && Engine_Version <= 424)
+		Members = GetMembers<UClassOld, UProperty, UObject>(Object);
+
+	else if (Engine_Version >= 422 && Engine_Version <= 424)
+		Members = GetMembers<UClassFTT, UProperty, UObject>(Object);
+
+	else if (Engine_Version >= 425) // && Engine_Version < 500)
+		Members = GetMembers<UClass, FProperty, UObject>(Object);
+
+	return Members;
+}
+
+std::vector<std::string> GetMemberNames(UObject* Object)
+{
+	std::vector<std::string> Names;
+	std::vector<UObject*> Members = GetMembersAsObjects(Object);
+
+	for (auto Member : Members)
+		Names.push_back(Member->GetName());
+
+	return Names;
+}
+
+UFunction* FindFunction(const std::string& Name, UObject* Object) // might as well pass in object because what else u gon use a func for.
+{
+	std::vector<UObject*> Members = GetMembersAsObjects(Object);
+
+	for (auto Member : Members)
+	{
+		if (Member->GetName() == Name) // dont use IsA cuz slower
+			return (UFunction*)Member;
+	}
 }
 
 template <typename ClassType, typename PropertyType>
@@ -540,7 +606,7 @@ int LoopMembersAndFindOffset(UObject* Object, const std::string& MemberName)
 
 static int GetOffset(UObject* Object, const std::string& MemberName)
 {
-	if (!MemberName.contains(_(" /")) && Object)
+	if (Object && !MemberName.contains(_(" /")))
 	{
 		if (Engine_Version <= 420)
 			return LoopMembersAndFindOffset<UClassOldest, UPropertyOld>(Object, MemberName);
@@ -637,6 +703,9 @@ bool Setup(void* PEHook) // TODO: Add Realloc
 
 	if (!FreeMemoryAddr)
 		FreeMemoryAddr = FindPattern(_("48 85 C9 74 2E 53 48 83 EC 20 48 8B D9"));
+
+	if (!FreeMemoryAddr)
+		FreeMemoryAddr = FindPattern(_("48 85 C9 0F 84 ? ? ? ? 48 89 5C 24 ? 57 48 83 EC 20 48 8B 3D ? ? ? ? 48 8B D9 48"));
 
 	if (!FreeMemoryAddr)
 	{
@@ -836,4 +905,9 @@ bool UObject::IsA(UObject* cmp) const
 		return IsA_<UClass>(this, cmp);
 
 	return false;
+}
+
+INL UFunction* UObject::Function(const std::string& FuncName)
+{
+	return FindFunction(FuncName, this);
 }
