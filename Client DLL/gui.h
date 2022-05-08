@@ -230,6 +230,14 @@ HRESULT WINAPI HookPresent(IDXGISwapChain* SwapChain, uint32_t Interval, uint32_
 				bLogRep = !bLogRep;
 			}
 
+			else if (ImGui::Button(_("Log Client")))
+			{
+				if (!bLogClient)
+					WriteToLog(_("\n\n\nNew\n"), _("ClientDLL_log"));
+
+				bLogClient = !bLogClient;
+			}
+
 			else if (ImGui::Button(_("Print bHasFinishedLoading")))
 			{
 				auto PC = (*(((*FindObject(_("FortEngine_"))->Member<UObject*>(_("ObjectProperty /Script/Engine.GameEngine.GameInstance")))->Member<TArray<UObject*>>(_("ArrayProperty /Script/Engine.GameInstance.LocalPlayers")))->At(0)->Member<UObject*>(_("ObjectProperty /Script/Engine.Player.PlayerController"))));

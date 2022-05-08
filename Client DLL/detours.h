@@ -7,6 +7,7 @@
 
 static bool bLogEverything = false;
 static bool bLogRep = false;
+static bool bLogClient = false;
 
 namespace Time
 {
@@ -100,6 +101,14 @@ void* ProcessEventDetour(UObject* Object, UObject* Function, void* Params)
 					std::cout << _("OnRep called!: ") << FunctionName << '\n';
 					WriteToLog(FunctionName + ' ' + ObjectName, _("OnRep_log"));
 				}
+			}
+		}
+
+		if (bLogClient)
+		{
+			if (Function->GetName().starts_with(_("Client")))
+			{
+				WriteToLog(_("Client function called!: ") + FunctionName, _("ClientDLL_log"));
 			}
 		}
 
