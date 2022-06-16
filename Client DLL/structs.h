@@ -86,6 +86,8 @@ struct TEnumAsByte // https://github.com/EpicGames/UnrealEngine/blob/4.21/Engine
 	{
 		return Value;
 	}
+
+	TEnumAsByte(TEnum Other) : Value((uint8_t)Other) {}
 };
 
 template <class ElementType>
@@ -119,6 +121,8 @@ public:
 	{
 		return ArrayMax - ArrayNum;
 	}
+
+	INL auto Num() const { return ArrayNum; }
 
 	INL void Reserve(int Number)
 	{

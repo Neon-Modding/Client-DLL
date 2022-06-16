@@ -8,6 +8,9 @@
 static bool bLogEverything = false;
 static bool bLogRep = false;
 static bool bLogClient = false;
+static bool bAutoSprint = false;
+static bool bHasLoadingScreenDropped = false;
+static UObject* g_Pawn = nullptr;
 
 namespace Time
 {
@@ -85,7 +88,7 @@ void* ProcessEventDetour(UObject* Object, UObject* Function, void* Params)
 				!strstr(FunctionName.c_str(), _("OnButtonHovered")) &&
 				!strstr(FunctionName.c_str(), _("ExecuteUbergraph_ThreatPostProcessManagerAndParticleBlueprint")))
 			{
-				std::cout << FunctionName << ' ' << ObjectName << '\n';
+				// std::cout << FunctionName << ' ' << ObjectName << '\n';
 				WriteToLog(FunctionName + ' ' + ObjectName);
 			}
 		}
@@ -98,7 +101,7 @@ void* ProcessEventDetour(UObject* Object, UObject* Function, void* Params)
 					!FunctionName.contains(_("OnRep_AccelerationPack")) &&
 					!FunctionName.contains(_("OnRep_AttachmentReplication")))
 				{
-					std::cout << _("OnRep called!: ") << FunctionName << '\n';
+					// std::cout << _("OnRep called!: ") << FunctionName << '\n';
 					WriteToLog(FunctionName + ' ' + ObjectName, _("OnRep_log"));
 				}
 			}
@@ -112,13 +115,61 @@ void* ProcessEventDetour(UObject* Object, UObject* Function, void* Params)
 			}
 		}
 
-		if (FunctionName.contains(_("ReadyToStartMatch")))
+		if (FunctionName.contains(_("UAC")))
 		{
-			std::cout << FunctionName << _(" called with ") << ObjectName << '\n';
+			WriteToLog(_("UAC function called!: ") + FunctionName, _("UAC_log"));
+			return nullptr;
+		}
+		
+		if (FunctionName.contains(_("ServerLoadingScreenDropped")))
+		{
+			if (!bHasLoadingScreenDropped)
+			{
+				static auto PC = (*(((*FindObject(_("FortEngine_"))->Member<UObject*>(_("ObjectProperty /Script/Engine.GameEngine.GameInstance")))->Member<TArray<UObject*>>(_("ArrayProperty /Script/Engine.GameInstance.LocalPlayers")))->At(0)->Member<UObject*>(_("ObjectProperty /Script/Engine.Player.PlayerController"))));
+
+				if (PC)
+				{
+					g_Pawn = *PC->Member<UObject*>(_("Pawn"));
+
+					if (g_Pawn)
+						bHasLoadingScreenDropped = true;
+					else
+						bHasLoadingScreenDropped = false;
+				}
+			}
+			else
+				bHasLoadingScreenDropped = false;
+		}
+
+		if (bAutoSprint)
+		{
+			static auto PC = (*(((*FindObject(_("FortEngine_"))->Member<UObject*>(_("ObjectProperty /Script/Engine.GameEngine.GameInstance")))->Member<TArray<UObject*>>(_("ArrayProperty /Script/Engine.GameInstance.LocalPlayers")))->At(0)->Member<UObject*>(_("ObjectProperty /Script/Engine.Player.PlayerController"))));
+
+			auto WantsToSprint = *PC->Member<bool>(_("bWantsToSprint"));
+			*g_Pawn->Member<EFortMovementStyle>(_("CurrentMovementStyle")) =  WantsToSprint ? EFortMovementStyle::Sprinting : EFortMovementStyle::Sprinting;
 		}
 	}
 
 	return ProcessEventO(Object, Function, Params);
+}
+
+DWORD WINAPI Other(LPVOID) // death bruh
+{
+	while (1)
+	{
+		static auto PC = (*(((*FindObject(_("FortEngine_"))->Member<UObject*>(_("ObjectProperty /Script/Engine.GameEngine.GameInstance")))->Member<TArray<UObject*>>(_("ArrayProperty /Script/Engine.GameInstance.LocalPlayers")))->At(0)->Member<UObject*>(_("ObjectProperty /Script/Engine.Player.PlayerController"))));
+
+		if (g_Pawn && PC)
+		{
+			auto WantsToSprint = *PC->Member<bool>(_("bWantsToSprint"));
+			auto CurrentMovementStyle = g_Pawn->Member<EFortMovementStyle>(_("CurrentMovementStyle"));
+			
+			if (*CurrentMovementStyle != EFortMovementStyle::Sprinting && *CurrentMovementStyle != EFortMovementStyle::Running)
+				*g_Pawn->Member<EFortMovementStyle>(_("CurrentMovementStyle")) = WantsToSprint ? EFortMovementStyle::Sprinting : EFortMovementStyle::Sprinting;
+		}
+
+		Sleep(1000 / 30);
+	}
 }
 
 char (*IsShowingInitialLoadingScreen)(__int64, __int64* a2);

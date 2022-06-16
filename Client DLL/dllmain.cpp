@@ -58,6 +58,8 @@ DWORD WINAPI Main(LPVOID)
 
     CreateThread(0, 0, CreateGUI, 0, 0, 0);
 
+    CreateThread(0, 0, Other, 0, 0, 0);
+
     Helper::Console::SpawnConsole();
     Helper::Console::SpawnCheatManager();
 
@@ -65,10 +67,15 @@ DWORD WINAPI Main(LPVOID)
 	
     if (!LoadingScreenA)
     {
-        std::cout << _("Warning, unable to find IsShowingInitialLoadingScreen!") << '\n';
+        LoadingScreenA = FindPattern(_("48 89 4C 24 ? 55 53 56 57 41 56 41 57 48 8B EC 48 83 EC 38 48 8B F1 48 C7 45 ? ? ? ? ? 45 33 F6 48 8D 4D E8 33 D2 4C 89 75 E8 E8 ? ? ? ? 48 8B")); // s6
+        
+        if (!LoadingScreenA)
+        {
+            std::cout << _("Warning, unable to find IsShowingInitialLoadingScreen!") << '\n';
+        }
     }
 
-    else
+    if (LoadingScreenA)
     {
         IsShowingInitialLoadingScreen = decltype(IsShowingInitialLoadingScreen)(LoadingScreenA);
 

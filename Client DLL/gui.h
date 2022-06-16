@@ -215,6 +215,28 @@ HRESULT WINAPI HookPresent(IDXGISwapChain* SwapChain, uint32_t Interval, uint32_
 				std::cout << _("Disabled Loading Screen!\n");
 			}
 
+			else if (ImGui::Button(_("Enable Autosprint")))
+			{
+				if (bHasLoadingScreenDropped)
+				{
+					bAutoSprint = true;
+					std::cout << _("Enabled Autosprint!\n");
+				}
+				else
+					std::cout << _("Loading screen still hasn't dropped!\n");
+			}
+
+			else if (ImGui::Button(_("Disable Autosprint")))
+			{
+				if (bHasLoadingScreenDropped)
+				{
+					bAutoSprint = false;
+					std::cout << _("Disabled Autosprint!\n");
+				}
+				else
+					std::cout << _("Loading screen still hasn't dropped!\n");
+			}
+
 			break;
 		case 2:
 			if (ImGui::Button(_("Log ProcessEvent")))
@@ -342,6 +364,96 @@ HRESULT WINAPI HookPresent(IDXGISwapChain* SwapChain, uint32_t Interval, uint32_
 
 				else
 					std::cout << _("Could not find GameState in World\n");
+			}
+
+			else if (ImGui::Button(_("Log Acknowledged Pawn")))
+			{
+				auto PC = (*(((*FindObject(_("FortEngine_"))->Member<UObject*>(_("ObjectProperty /Script/Engine.GameEngine.GameInstance")))->Member<TArray<UObject*>>(_("ArrayProperty /Script/Engine.GameInstance.LocalPlayers")))->At(0)->Member<UObject*>(_("ObjectProperty /Script/Engine.Player.PlayerController"))));
+
+				if (PC)
+				{
+					auto Pawn = PC->Member<UObject*>(_("AcknowledgedPawn"));
+					if (Pawn && *Pawn)
+					{
+						std::cout << "AcknowledgedPawn: " << (*Pawn)->GetFullName() << '\n';
+					}
+					else
+						std::cout << _("No AcknowledgedPawn!\n");
+				}
+			}
+
+			else if (ImGui::Button(_("Call ServerShortTimeOut")))
+			{
+				auto PC = (*(((*FindObject(_("FortEngine_"))->Member<UObject*>(_("ObjectProperty /Script/Engine.GameEngine.GameInstance")))->Member<TArray<UObject*>>(_("ArrayProperty /Script/Engine.GameInstance.LocalPlayers")))->At(0)->Member<UObject*>(_("ObjectProperty /Script/Engine.Player.PlayerController"))));
+
+				if (PC)
+				{
+					PC->ProcessEvent(PC->Function(_("ServerShortTimeout")), nullptr);
+					std::cout << _("Called ServerShortTimeout!\n");
+				}
+			}
+
+			else if (ImGui::Button(_("Print ItemInstances (3.5)")))
+			{
+				auto PC = (*(((*FindObject(_("FortEngine_"))->Member<UObject*>(_("ObjectProperty /Script/Engine.GameEngine.GameInstance")))->Member<TArray<UObject*>>(_("ArrayProperty /Script/Engine.GameInstance.LocalPlayers")))->At(0)->Member<UObject*>(_("ObjectProperty /Script/Engine.Player.PlayerController"))));
+
+				if (PC)
+				{
+					auto WorldInventory = *PC->Member<UObject*>(_("WorldInventory"));
+					
+					if (WorldInventory)
+					{
+						auto ItemInstances = (TArray<UObject*>*)(__int64(*WorldInventory->Member<__int64>(_("Inventory"))) + 0x110);
+
+						if (ItemInstances)
+						{
+							std::cout << _("ItemInstances Num: ") << ItemInstances->Num() << '\n';
+							for (int i = 0; i < ItemInstances->Num(); i++)
+							{
+								auto ItemInstance = ItemInstances->At(i);
+
+								if (!ItemInstance)
+									continue;
+
+								std::cout << std::format("[{}] {}", i, ItemInstance->GetFullName()) << '\n';
+							}
+						}
+						else
+							std::cout << _("Could not find ItemInstances!\n");
+					}
+				}
+			}
+
+			else if (ImGui::Button(_("Print ReplicatedEntries (3.5)")))
+			{
+				auto PC = (*(((*FindObject(_("FortEngine_"))->Member<UObject*>(_("ObjectProperty /Script/Engine.GameEngine.GameInstance")))->Member<TArray<UObject*>>(_("ArrayProperty /Script/Engine.GameInstance.LocalPlayers")))->At(0)->Member<UObject*>(_("ObjectProperty /Script/Engine.Player.PlayerController"))));
+
+				if (PC)
+				{
+					auto WorldInventory = *PC->Member<UObject*>(_("WorldInventory"));
+
+					if (WorldInventory)
+					{
+						auto ReplicatedEntries = (TArray<__int64>*)(__int64(*WorldInventory->Member<__int64>(_("Inventory"))) + 0xB0);
+
+						if (ReplicatedEntries)
+						{
+							std::cout << _("ReplicatedEntries Num: ") << ReplicatedEntries->Num() << '\n';
+							
+							for (int i = 0; i < ReplicatedEntries->Num(); i++)
+							{
+								auto ReplicatedEntry = ReplicatedEntries->At(i);
+
+								if (!ReplicatedEntry)
+									continue;
+
+								std::cout << std::format("[{}] {}", i, (*(UObject**)(__int64(ReplicatedEntry) + 0x18))->GetFullName()) << '\n';
+							}
+						}
+						else
+							std::cout << _("Could not find ReplicatedEntries!\n");
+					}
+				}
 			}
 
 			break;

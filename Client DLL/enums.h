@@ -254,3 +254,25 @@ enum class ENetRole : uint8_t
 	ROLE_Authority = 3,
 	ROLE_MAX = 4
 };
+
+// Enum Engine.EMovementMode
+enum class EMovementMode : uint8_t {
+	MOVE_None = 0,
+	MOVE_Walking = 1,
+	MOVE_NavWalking = 2,
+	MOVE_Falling = 3,
+	MOVE_Swimming = 4,
+	MOVE_Flying = 5,
+	MOVE_Custom = 6,
+	MOVE_MAX = 7
+};
+
+// Enum FortniteGame.EFortMovementStyle
+enum class EFortMovementStyle : uint8_t {
+	Running,
+	Walking,
+	Charging,
+	Sprinting,
+	PersonalVehicle,
+	EFortMovementStyle_MAX,
+};

@@ -109,7 +109,8 @@ namespace Helper
 			auto ConsoleClass = FindObject(_("Class /Script/Engine.Console"));
 			UObject** ViewportConsole = FortGameViewportClient->Member<UObject*>(_("ObjectProperty /Script/Engine.GameViewportClient.ViewportConsole"));
 
-			*ViewportConsole = Easy::SpawnObject(ConsoleClass, FortGameViewportClient);
+			if (!*ViewportConsole)
+				*ViewportConsole = Easy::SpawnObject(ConsoleClass, FortGameViewportClient);
 
 			return ViewportConsole;
 		}
@@ -144,5 +145,21 @@ namespace Helper
 		default:
 			return _("Invalid");
 		}
+	}
+	
+	void SetMovementMode(UObject* Character, EMovementMode mode)
+	{
+		static auto CharacterMovement = *Character->Member<UObject*>(_("CharacterMovement"));
+		static auto fn = CharacterMovement->Function(_("SetMovementMode"));
+
+		struct {
+			EMovementMode NewMovementMode;
+			char NewCustomMode;
+		} params{};
+
+		params.NewMovementMode = mode;
+		params.NewCustomMode = false;
+
+		Character->ProcessEvent(fn, &params);
 	}
 }
