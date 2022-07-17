@@ -201,8 +201,8 @@ public:
 
 struct FName // https://github.com/EpicGames/UnrealEngine/blob/c3caf7b6bf12ae4c8e09b606f10a09776b4d1f38/Engine/Source/Runtime/Core/Public/UObject/NameTypes.h#L403
 {
-	uint32_t ComparisonIndex;
-	uint32_t Number;
+	uint32_t ComparisonIndex = 0;
+	uint32_t Number = 0;
 
 	INL std::string ToString()
 	{
@@ -829,6 +829,9 @@ bool Setup(void* PEHook) // TODO: Add Realloc
 
 		if (!ObjectsAddr)
 			ObjectsAddr = FindPattern(_("48 8B 05 ? ? ? ? 48 8B 0C C8 48 8B 04 D1"), true, 3);
+
+		if (!ObjectsAddr)
+			ObjectsAddr = FindPattern(_("48 8B 05 ? ? ? ? 48 8B 0C C8 48 8D 04 D1"), true, 3); // stupid 5.41
 	}
 
 	if (FN_Version >= 16.00 && FN_Version < 18.40) // 4.26.1
@@ -851,6 +854,12 @@ bool Setup(void* PEHook) // TODO: Add Realloc
 
 	ToStringO = decltype(ToStringO)(ToStringAddr);
 
+	if (!ObjectsAddr)
+	{
+		MessageBoxA(NULL, _("Failed to find FUObjectArray::ObjObjects"), _("Fortnite"), MB_OK);
+		return false;
+	}
+	
 	if (!ProcessEventAddr)
 	{
 		MessageBoxA(NULL, _("Failed to find UObject::ProcessEvent"), _("Fortnite"), MB_OK);
@@ -869,12 +878,6 @@ bool Setup(void* PEHook) // TODO: Add Realloc
 
 	MH_CreateHook((PVOID)ProcessEventAddr, PEHook, (PVOID*)&ProcessEventO);
 	MH_EnableHook((PVOID)ProcessEventAddr);
-
-	if (!ObjectsAddr)
-	{
-		MessageBoxA(NULL, _("Failed to find FUObjectArray::ObjObjects"), _("Fortnite"), MB_OK);
-		return false;
-	}
 
 	if (bOldObjects)
 		OldObjects = decltype(OldObjects)(ObjectsAddr);

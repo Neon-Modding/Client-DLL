@@ -7,10 +7,12 @@
 
 static bool bLogEverything = false;
 static bool bLogRep = false;
-static bool bLogClient = false;
+static bool bLogRPCS = false;
 static bool bAutoSprint = false;
 static bool bHasLoadingScreenDropped = false;
 static UObject* g_Pawn = nullptr;
+
+void(__fastcall* ReplicateMoveToServer)(UObject* movementComponent, float a2, const FVector* a3);
 
 namespace Time
 {
@@ -86,7 +88,10 @@ void* ProcessEventDetour(UObject* Object, UObject* Function, void* Params)
 				!strstr(FunctionName.c_str(), _("OnHovered")) &&
 				!strstr(FunctionName.c_str(), _("OnCurrentTextStyleChanged")) &&
 				!strstr(FunctionName.c_str(), _("OnButtonHovered")) &&
-				!strstr(FunctionName.c_str(), _("ExecuteUbergraph_ThreatPostProcessManagerAndParticleBlueprint")))
+				!strstr(FunctionName.c_str(), _("ExecuteUbergraph_ThreatPostProcessManagerAndParticleBlueprint")) && 
+				!strstr(FunctionName.c_str(), _("UpdateCamera")) &&
+				!strstr(FunctionName.c_str(), _("GetMutatorContext")) &&
+				!strstr(FunctionName.c_str(), _("CanJumpInternal")))
 			{
 				// std::cout << FunctionName << ' ' << ObjectName << '\n';
 				WriteToLog(FunctionName + ' ' + ObjectName);
@@ -107,12 +112,13 @@ void* ProcessEventDetour(UObject* Object, UObject* Function, void* Params)
 			}
 		}
 
-		if (bLogClient)
+		if (bLogRPCS)
 		{
-			if (Function->GetName().starts_with(_("Client")))
-			{
-				WriteToLog(_("Client function called!: ") + FunctionName, _("ClientDLL_log"));
-			}
+			// if (Function->FunctionFlags & 0x00200000 || (Function->FunctionFlags & 0x01000000 && FunctionName.find("Ack") == -1 && FunctionName.find("AdjustPos") == -1))
+			auto ShortName = Function->GetName();
+
+			if (ShortName.starts_with(_("Client")) || ShortName.starts_with(_("Server")))
+				WriteToLog(_("Client function called!: ") + FunctionName, _("RPCS_log"));
 		}
 
 		if (FunctionName.contains(_("UAC")))
@@ -121,11 +127,11 @@ void* ProcessEventDetour(UObject* Object, UObject* Function, void* Params)
 			return nullptr;
 		}
 		
-		if (FunctionName.contains(_("ServerLoadingScreenDropped")))
+		else if (FunctionName.contains(_("ServerLoadingScreenDropped")))
 		{
-			if (!bHasLoadingScreenDropped)
+			/* if (!bHasLoadingScreenDropped)
 			{
-				static auto PC = (*(((*FindObject(_("FortEngine_"))->Member<UObject*>(_("ObjectProperty /Script/Engine.GameEngine.GameInstance")))->Member<TArray<UObject*>>(_("ArrayProperty /Script/Engine.GameInstance.LocalPlayers")))->At(0)->Member<UObject*>(_("ObjectProperty /Script/Engine.Player.PlayerController"))));
+				static auto PC = (*(((*FindObject(_("FortEngine_"))->Member<UObject*>(_("GameInstance")))->Member<TArray<UObject*>>(_("LocalPlayers")))->At(0)->Member<UObject*>(_("PlayerController"))));
 
 				if (PC)
 				{
@@ -138,12 +144,17 @@ void* ProcessEventDetour(UObject* Object, UObject* Function, void* Params)
 				}
 			}
 			else
-				bHasLoadingScreenDropped = false;
+				bHasLoadingScreenDropped = false; */
+		}
+
+		else if (FunctionName.contains(_("ClientUpdatePositionAfterServerUpdate")))
+		{
+			std::cout << _("ClientUpdatePositionAfterServerUpdate! (This means the Client knows that we are actually a Client)");
 		}
 
 		if (bAutoSprint)
 		{
-			static auto PC = (*(((*FindObject(_("FortEngine_"))->Member<UObject*>(_("ObjectProperty /Script/Engine.GameEngine.GameInstance")))->Member<TArray<UObject*>>(_("ArrayProperty /Script/Engine.GameInstance.LocalPlayers")))->At(0)->Member<UObject*>(_("ObjectProperty /Script/Engine.Player.PlayerController"))));
+			static auto PC = (*(((*FindObject(_("FortEngine_"))->Member<UObject*>(_("GameInstance")))->Member<TArray<UObject*>>(_("LocalPlayers")))->At(0)->Member<UObject*>(_("PlayerController"))));
 
 			auto WantsToSprint = *PC->Member<bool>(_("bWantsToSprint"));
 			*g_Pawn->Member<EFortMovementStyle>(_("CurrentMovementStyle")) =  WantsToSprint ? EFortMovementStyle::Sprinting : EFortMovementStyle::Sprinting;
@@ -157,7 +168,7 @@ DWORD WINAPI Other(LPVOID) // death bruh
 {
 	while (1)
 	{
-		static auto PC = (*(((*FindObject(_("FortEngine_"))->Member<UObject*>(_("ObjectProperty /Script/Engine.GameEngine.GameInstance")))->Member<TArray<UObject*>>(_("ArrayProperty /Script/Engine.GameInstance.LocalPlayers")))->At(0)->Member<UObject*>(_("ObjectProperty /Script/Engine.Player.PlayerController"))));
+		static auto PC = (*(((*FindObject(_("FortEngine_"))->Member<UObject*>(_("GameInstance")))->Member<TArray<UObject*>>(_("LocalPlayers")))->At(0)->Member<UObject*>(_("PlayerController"))));
 
 		if (g_Pawn && PC)
 		{
@@ -165,7 +176,7 @@ DWORD WINAPI Other(LPVOID) // death bruh
 			auto CurrentMovementStyle = g_Pawn->Member<EFortMovementStyle>(_("CurrentMovementStyle"));
 			
 			if (*CurrentMovementStyle != EFortMovementStyle::Sprinting && *CurrentMovementStyle != EFortMovementStyle::Running)
-				*g_Pawn->Member<EFortMovementStyle>(_("CurrentMovementStyle")) = WantsToSprint ? EFortMovementStyle::Sprinting : EFortMovementStyle::Sprinting;
+				*g_Pawn->Member<EFortMovementStyle>(_("CurrentMovementStyle")) = WantsToSprint ? EFortMovementStyle::Sprinting : EFortMovementStyle::Walking;
 		}
 
 		Sleep(1000 / 30);
@@ -182,4 +193,54 @@ char __fastcall IsShowingInitialLoadingScreenDetour(__int64 a1, __int64* a2)
 		return 0;
 
 	return IsShowingInitialLoadingScreen(a1, a2);
+}
+
+char (*IsShowingInitialLoadingScreenC2)(__int64);
+
+char __fastcall IsShowingInitialLoadingScreenC2Detour(__int64 a1)
+{
+	if (bHideLoadingScreen)
+		return 0;
+
+	return IsShowingInitialLoadingScreenC2(a1);
+}
+
+// I hate movement.
+
+void __fastcall ReplicateMoveToServerDetour(UObject* movementComponent, float a2, const FVector* a3)
+{
+	std::cout << _("ReplicateMoveToServer was called!\n");
+
+	return ReplicateMoveToServer(movementComponent, a2, a3);
+}
+
+void* (__fastcall* GetPredictionData_Client_Character)(UObject* component);
+
+bool bSetReplicatemOvementTotrue = false;
+
+static bool GetBit(uint8_t b, int bitNumber) {
+	return (b & (1 << bitNumber)) != 0;
+}
+
+void* __fastcall GetPredictionData_Client_CharacterDetour(UObject* component)
+{
+	std::cout << _("GetPredictionData_Client_Character was called!\n");
+
+	auto CharacterOwner = component->Member<UObject*>(_("CharacterOwner"));
+
+	if (CharacterOwner && *CharacterOwner)
+	{
+		std::cout << _("CharacterOwner: ") << CharacterOwner << '\n';
+
+		auto bReplicateMovement = (*CharacterOwner)->Member<uint8_t>(_("bReplicateMovement"));
+
+		std::cout << _("bReplicateMovement: ") << GetBit(*bReplicateMovement, (int)bReplicateMovement[0]) << '\n';
+		/* if ()
+		bReplicateMovement[0] = bSetReplicatemOvementTotrue;
+		std::cout << _("Ahh: ") << bSetReplicatemOvementTotrue << '\n'; */
+	}
+	else
+		std::cout << _("Invalid CharacterOwner: ") << CharacterOwner << '\n';
+
+	return GetPredictionData_Client_Character(component);
 }

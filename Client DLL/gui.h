@@ -114,6 +114,12 @@ HRESULT WINAPI HookPresent(IDXGISwapChain* SwapChain, uint32_t Interval, uint32_
 				ImGui::EndTabItem();
 			}
 
+			if (ImGui::BeginTabItem(_("Movement")))
+			{
+				Tab = 4;
+				ImGui::EndTabItem();
+			}
+
 			ImGui::EndTabBar();
 		}
 
@@ -145,14 +151,66 @@ HRESULT WINAPI HookPresent(IDXGISwapChain* SwapChain, uint32_t Interval, uint32_
 					std::cout << _("Could not find Pawn!\n");
 			}
 
+			else if (ImGui::Button(_("Change PC & Pawn to Simulated")))
+			{
+				auto PC = (*(((*FindObject(_("FortEngine_"))->Member<UObject*>(_("ObjectProperty /Script/Engine.GameEngine.GameInstance")))->Member<TArray<UObject*>>(_("ArrayProperty /Script/Engine.GameInstance.LocalPlayers")))->At(0)->Member<UObject*>(_("ObjectProperty /Script/Engine.Player.PlayerController"))));
+
+				auto Pawn = PC->Member<UObject*>(_("ObjectProperty /Script/Engine.Controller.Pawn"));
+
+				if (PC)
+				{
+					std::string role;
+
+					role = _("ByteProperty /Script/Engine.Actor.RemoteRole");
+
+					*PC->Member<TEnumAsByte<ENetRole>>(role) = ENetRole::ROLE_SimulatedProxy;
+					if (Pawn && *Pawn)
+					{
+						*(*Pawn)->Member<TEnumAsByte<ENetRole>>(role) = ENetRole::ROLE_SimulatedProxy;
+						std::cout << "Changed Pawn Role!\n";
+					}
+
+					std::cout << "Changed PC Role!\n";
+				}
+
+				else
+					std::cout << _("Could not find PlayerController!\n");
+			}
+
+			else if (ImGui::Button(_("Change PC & Pawn to Autonomous")))
+			{
+				auto PC = (*(((*FindObject(_("FortEngine_"))->Member<UObject*>(_("ObjectProperty /Script/Engine.GameEngine.GameInstance")))->Member<TArray<UObject*>>(_("ArrayProperty /Script/Engine.GameInstance.LocalPlayers")))->At(0)->Member<UObject*>(_("ObjectProperty /Script/Engine.Player.PlayerController"))));
+
+				auto Pawn = PC->Member<UObject*>(_("ObjectProperty /Script/Engine.Controller.Pawn"));
+
+				if (PC)
+				{
+					std::string role;
+
+					role = _("ByteProperty /Script/Engine.Actor.RemoteRole");
+
+					*PC->Member<TEnumAsByte<ENetRole>>(role) = ENetRole::ROLE_AutonomousProxy;
+					if (Pawn && *Pawn)
+					{
+						*(*Pawn)->Member<TEnumAsByte<ENetRole>>(role) = ENetRole::ROLE_AutonomousProxy;
+						std::cout << "Changed Pawn Role!\n";
+					}
+
+					std::cout << "Changed PC Role!\n";
+				}
+
+				else
+					std::cout << _("Could not find PlayerController!\n");
+			}
+
 			else if (ImGui::Button("Print PlayerController"))
 			{
 				auto PC = (*(((*FindObject(_("FortEngine_"))->Member<UObject*>(_("ObjectProperty /Script/Engine.GameEngine.GameInstance")))->Member<TArray<UObject*>>(_("ArrayProperty /Script/Engine.GameInstance.LocalPlayers")))->At(0)->Member<UObject*>(_("ObjectProperty /Script/Engine.Player.PlayerController"))));
 
+				std::cout << PC << '\n';
+
 				if (PC)
 				{
-					std::cout << PC << '\n';
-
 					std::cout << _("Printing out PlayerController name in 2 seconds...\n");
 
 					Sleep(2000);
@@ -252,12 +310,12 @@ HRESULT WINAPI HookPresent(IDXGISwapChain* SwapChain, uint32_t Interval, uint32_
 				bLogRep = !bLogRep;
 			}
 
-			else if (ImGui::Button(_("Log Client")))
+			else if (ImGui::Button(_("Log RPCS")))
 			{
-				if (!bLogClient)
-					WriteToLog(_("\n\n\nNew\n"), _("ClientDLL_log"));
+				if (!bLogRPCS)
+					WriteToLog(_("\n\n\nNew\n"), _("RPCS_log"));
 
-				bLogClient = !bLogClient;
+				bLogRPCS = !bLogRPCS;
 			}
 
 			else if (ImGui::Button(_("Print bHasFinishedLoading")))
@@ -321,9 +379,9 @@ HRESULT WINAPI HookPresent(IDXGISwapChain* SwapChain, uint32_t Interval, uint32_
 
 			else if (ImGui::Button(_("Set bReadyToStartMatch to true")))
 			{
-				auto PC = (*(((*FindObject(_("FortEngine_"))->Member<UObject*>(_("ObjectProperty /Script/Engine.GameEngine.GameInstance")))->Member<TArray<UObject*>>(_("ArrayProperty /Script/Engine.GameInstance.LocalPlayers")))->At(0)->Member<UObject*>(_("ObjectProperty /Script/Engine.Player.PlayerController"))));
+				auto PC = (*(((*FindObject(_("FortEngine_"))->Member<UObject*>(_("GameInstance")))->Member<TArray<UObject*>>(_("LocalPlayers")))->At(0)->Member<UObject*>(_("ObjectProperty /Script/Engine.Player.PlayerController"))));
 
-				*PC->Member<bool>(_("BoolProperty /Script/FortniteGame.FortPlayerController.bReadyToStartMatch")) = true;
+				*PC->Member<bool>(_("bReadyToStartMatch")) = true;
 
 				std::cout << _("bReadyToStartMatch was set to true!\n");
 			}
@@ -335,23 +393,23 @@ HRESULT WINAPI HookPresent(IDXGISwapChain* SwapChain, uint32_t Interval, uint32_
 				if (!World)
 					std::cout << _("Could not find World!\n");
 
-				auto GameMode = World->Member<UObject*>(_("ObjectProperty /Script/Engine.World.AuthorityGameMode"));
+				auto GameMode = World->Member<UObject*>(_("AuthorityGameMode"));
 
 				if (GameMode && *GameMode)
 				{
-					auto GameState = (*GameMode)->Member<UObject*>(_("ObjectProperty /Script/Engine.GameModeBase.GameState"));
-					auto State = (*(*GameState)->Member<FName>(_("NameProperty /Script/Engine.GameState.MatchState"))).ToString();
+					auto GameState = (*GameMode)->Member<UObject*>(_("GameState"));
+					auto State = (*(*GameState)->Member<FName>(_("MatchState"))).ToString();
 					std::cout << _("MatchState (GameMode): ") << State << '\n';
 				}
 
 				else
 					std::cout << _("Could not find GameModeBase!\n");
 
-				auto GameState2 = World->Member<UObject*>(_("ObjectProperty /Script/Engine.World.GameState"));
+				auto GameState2 = World->Member<UObject*>(_("GameState"));
 
 				if (GameState2 && *GameState2)
 				{
-					auto State2 = (*GameState2)->Member<FName>(_("NameProperty /Script/Engine.GameState.MatchState"));
+					auto State2 = (*GameState2)->Member<FName>(_("MatchState"));
 
 					FName name;
 					name.Number = 0;
@@ -393,7 +451,19 @@ HRESULT WINAPI HookPresent(IDXGISwapChain* SwapChain, uint32_t Interval, uint32_
 				}
 			}
 
-			else if (ImGui::Button(_("Print ItemInstances (3.5)")))
+			else if (ImGui::Button(_("Print CameraManager")))
+			{
+				auto PC = (*(((*FindObject(_("FortEngine_"))->Member<UObject*>(_("ObjectProperty /Script/Engine.GameEngine.GameInstance")))->Member<TArray<UObject*>>(_("ArrayProperty /Script/Engine.GameInstance.LocalPlayers")))->At(0)->Member<UObject*>(_("ObjectProperty /Script/Engine.Player.PlayerController"))));
+
+				if (PC)
+				{
+					auto CameraManager = PC->Member<UObject*>(_("PlayerCameraManagerClass"));
+
+					if (CameraManager && *CameraManager)
+						std::cout << _("Camera Manager: ") << (*CameraManager)->GetFullName() << '\n';
+				}
+			}
+			/* else if (ImGui::Button(_("Print ItemInstances (3.5)")))
 			{
 				auto PC = (*(((*FindObject(_("FortEngine_"))->Member<UObject*>(_("ObjectProperty /Script/Engine.GameEngine.GameInstance")))->Member<TArray<UObject*>>(_("ArrayProperty /Script/Engine.GameInstance.LocalPlayers")))->At(0)->Member<UObject*>(_("ObjectProperty /Script/Engine.Player.PlayerController"))));
 
@@ -420,6 +490,21 @@ HRESULT WINAPI HookPresent(IDXGISwapChain* SwapChain, uint32_t Interval, uint32_
 						}
 						else
 							std::cout << _("Could not find ItemInstances!\n");
+					}
+				}
+			}
+
+			else if (ImGui::Button(_("ItemInstances Test")))
+			{
+				auto PC = (*(((*FindObject(_("FortEngine_"))->Member<UObject*>(_("ObjectProperty /Script/Engine.GameEngine.GameInstance")))->Member<TArray<UObject*>>(_("ArrayProperty /Script/Engine.GameInstance.LocalPlayers")))->At(0)->Member<UObject*>(_("ObjectProperty /Script/Engine.Player.PlayerController"))));
+
+				if (PC)
+				{
+					auto WorldInventory = *PC->Member<UObject*>(_("WorldInventory"));
+
+					if (WorldInventory)
+					{
+						std::cout << "ItemInstances Offsets: " << GetOffset(WorldInventory->Member<UObject>(_("Inventory")), _("ItemInstances")) << '\n';
 					}
 				}
 			}
@@ -454,13 +539,40 @@ HRESULT WINAPI HookPresent(IDXGISwapChain* SwapChain, uint32_t Interval, uint32_
 							std::cout << _("Could not find ReplicatedEntries!\n");
 					}
 				}
-			}
+			} */
 
 			break;
 		case 3:
 			if (ImGui::Button(_("Dump Objects")))
 				CreateThread(0, 0, DumpObjects, 0, 0, 0);
 
+			else if (ImGui::Button(_("Call OnRep_ReplicatedMovement")))
+			{
+				auto PC = (*(((*FindObject(_("FortEngine_"))->Member<UObject*>(_("ObjectProperty /Script/Engine.GameEngine.GameInstance")))->Member<TArray<UObject*>>(_("ArrayProperty /Script/Engine.GameInstance.LocalPlayers")))->At(0)->Member<UObject*>(_("ObjectProperty /Script/Engine.Player.PlayerController"))));
+
+				if (PC)
+				{
+					auto Pawn = PC->Member<UObject*>(_("Pawn"));
+					if (Pawn && *Pawn)
+					{
+						static auto OnRep_ReplicatedMovement = (*Pawn)->Function(_("OnRep_ReplicatedMovement"));
+
+						if (OnRep_ReplicatedMovement)
+						{
+							(*Pawn)->ProcessEvent(OnRep_ReplicatedMovement, nullptr);
+							std::cout << _("Called OnRep_ReplicatedMovement!\n");
+						}
+					}
+				}
+			}
+
+			break;
+		case 4:
+			if (ImGui::Button(_("Set bReplicateMovement to true")))
+			{
+				bSetReplicatemOvementTotrue = !bSetReplicatemOvementTotrue;
+				std::cout << _("Set bReplicateMovement!\n");
+			}
 			break;
 		}
 
@@ -488,7 +600,7 @@ DWORD WINAPI CreateGUI(LPVOID)
 		Sleep(100);
 	}
 
-	std::cout << "Initialized GUI!\n";
+	std::cout << _("Initialized GUI!\n");
 
 	return 0;
 }

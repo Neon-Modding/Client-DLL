@@ -23,7 +23,7 @@ DWORD WINAPI DumpObjects(LPVOID)
 		if (Object)
 		{
 			auto fullname = Object->GetFullName();
-			stream << std::format(_("[{}] {}\n"), i, fullname);
+			stream << std::format("[{}] {}\n", i, fullname);
 			/*
 			// stream << std::format("[{}] {}\n", i, fullname);
 			if (fullname.find(_("Property")) != std::string::npos)
@@ -116,7 +116,7 @@ namespace Helper
 		}
 	}
 
-	TEnumAsByte<ENetRole> GetRole(UObject* Object, bool bRemote = false)
+	TEnumAsByte<ENetRole>& GetRole(UObject* Object, bool bRemote = false)
 	{
 		std::string role;
 
